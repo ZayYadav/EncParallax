@@ -19,8 +19,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          pip install Pillow pycryptodome
+        run: pip install Pillow pycryptodome
 
       - name: Run embedding script
         run: python embed.py
