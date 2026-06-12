@@ -1,80 +1,46 @@
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 from PIL import Image
-import sys
-import os
+import os, sys, zipfile
 
-# --- Configuration ---
-SOURCE_PNG = "PngParallax.png"   # Carrier image
-LIB_FILE = "libbgmi.so"          # File to hide
-OUTPUT_PNG = "stego.png"         # Output image
-KEY = b"ParallaxOwner123"        # 16-byte AES key
-# --------------------
+lib_path = sys.argv[1]       # user uploaded .so
+output_dir = sys.argv[2]     # user folder, e.g., /uploads/<chat_id>
 
-def main():
-    # 1. File Existence Checks
-    if not os.path.exists(LIB_FILE):
-        print(f"❌ Error: {LIB_FILE} not found in the repository root.")
-        sys.exit(1)
-    if not os.path.exists(SOURCE_PNG):
-        print(f"❌ Error: {SOURCE_PNG} not found. Workflow will download it.")
-        sys.exit(1)
+png_path = "PngParallax.png"   # root PNG
+key = b"ParallaxOwner123"
 
-    print("✅ All required files found. Starting process...")
+# read .so
+with open(lib_path, "rb") as f:
+    lib_data = f.read()
 
-    # 2. Read and Encrypt the Library
-    print(f"📖 Reading {LIB_FILE}...")
-    with open(LIB_FILE, "rb") as f:
-        lib_data = f.read()
+cipher = AES.new(key, AES.MODE_ECB)
+encrypted = cipher.encrypt(pad(lib_data, 16))
+size = len(encrypted).to_bytes(8, "big")
+payload = size + encrypted
 
-    print(f"🔐 Encrypting with AES-ECB...")
-    cipher = AES.new(KEY, AES.MODE_ECB)
-    try:
-        encrypted = cipher.encrypt(pad(lib_data, AES.block_size))
-    except Exception as e:
-        print(f"❌ Encryption failed: {e}")
-        sys.exit(1)
+# embed into PNG
+img = Image.open(png_path)
+pixels = img.load()
+bits = "".join(format(b,"08b") for b in payload)
+w,h = img.size
+bit_index=0
+for y in range(h):
+    for x in range(w):
+        if bit_index>=len(bits): break
+        r,g,b = pixels[x,y]
+        r = (r&~1)|int(bits[bit_index]); bit_index+=1
+        if bit_index<len(bits): g = (g&~1)|int(bits[bit_index]); bit_index+=1
+        if bit_index<len(bits): b = (b&~1)|int(bits[bit_index]); bit_index+=1
+        pixels[x,y]=(r,g,b)
+    if bit_index>=len(bits): break
 
-    # 3. Prepare Payload: [8-byte length] + [encrypted data]
-    payload = len(encrypted).to_bytes(8, "big") + encrypted
+# save PNG
+user_png = os.path.join(output_dir,"LibEnc.png")
+img.save(user_png)
 
-    # 4. Convert Payload to Binary String
-    bits = "".join(format(b, "08b") for b in payload)
-    data_len_bits = len(bits)
-    print(f"📊 Total bits to embed: {data_len_bits}")
+# ZIP
+zip_path = os.path.join(output_dir,"LibEnc.zip")
+with zipfile.ZipFile(zip_path,"w") as zf:
+    zf.write(user_png,arcname="LibEnc.png")
 
-    # 5. Open Image and Check Capacity
-    img = Image.open(SOURCE_PNG)
-    pixels = img.load()
-    width, height = img.size
-
-    max_bits_capacity = width * height * 3
-    if data_len_bits > max_bits_capacity:
-        print(f"❌ Error: Image too small to hold the data.")
-        print(f"   Capacity: {max_bits_capacity} bits, Required: {data_len_bits} bits.")
-        print(f"   Please use a larger image.")
-        sys.exit(1)
-
-    # 6. Embed Data into LSB of RGB Pixels
-    print(f"🖼️  Embedding data into {SOURCE_PNG}...")
-    bit_index = 0
-    for y in range(height):
-        for x in range(width):
-            if bit_index >= data_len_bits:
-                break
-            r, g, b = pixels[x, y]
-
-            r = (r & ~1) | int(bits[bit_index]); bit_index += 1
-            if bit_index < data_len_bits:
-                g = (g & ~1) | int(bits[bit_index]); bit_index += 1
-            if bit_index < data_len_bits:
-                b = (b & ~1) | int(bits[bit_index]); bit_index += 1
-
-            pixels[x, y] = (r, g, b)
-
-    # 7. Save the Result
-    img.save(OUTPUT_PNG)
-    print(f"✨ Success! Steganography image saved as {OUTPUT_PNG}")
-
-if __name__ == "__main__":
-    main()
+print("✅ ZIP ready →", zip_path)
