@@ -1,0 +1,27 @@
+name: Embed Encrypted lib.so into PNG
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: pip install Pillow pycryptodome
+      - run: curl -L -o PngParallax.png "https://raw.githubusercontent.com/ZayYadav/ParallaxENC/70d441c43c9f1d5b6923e00008bac54915f7b3c7/PngParallax.png"
+      - run: |
+          if [ ! -f lib.so ]; then
+            echo "ERROR: lib.so not found"
+            exit 1
+          fi
+      - run: python embed.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stego-image
+          path: stego.png
