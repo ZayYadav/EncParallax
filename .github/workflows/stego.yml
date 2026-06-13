@@ -25,3 +25,4 @@ jobs:
         with:
           name: stego_${{ github.event.inputs.user_id }}
           path: stego_${{ github.event.inputs.user_id }}.png
+          
