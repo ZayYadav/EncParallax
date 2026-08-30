@@ -1,0 +1,151 @@
+name: Build Parallax Safe SO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - safe-android-so-build
+    paths:
+      - 'AD_safe.cpp'
+      - '.github/workflows/build-safe-so.yml'
+  pull_request:
+    paths:
+      - 'AD_safe.cpp'
+      - '.github/workflows/build-safe-so.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.abi }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            triple: aarch64-linux-android
+          - abi: armeabi-v7a
+            triple: armv7a-linux-androideabi
+          - abi: x86_64
+            triple: x86_64-linux-android
+          - abi: x86
+            triple: i686-linux-android
+
+    env:
+      NDK_VERSION: '27.2.12479018'
+      ANDROID_API: '24'
+      LIB_NAME: libParallaxSafe.so
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "ndk;${NDK_VERSION}"
+
+      - name: Resolve compiler
+        id: ndk
+        shell: bash
+        run: |
+          set -euo pipefail
+          NDK_ROOT="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}"
+          TOOLCHAIN="${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CXX="${TOOLCHAIN}/${{ matrix.triple }}${ANDROID_API}-clang++"
+
+          test -x "${CXX}"
+          echo "ndk_root=${NDK_ROOT}" >> "$GITHUB_OUTPUT"
+          echo "cxx=${CXX}" >> "$GITHUB_OUTPUT"
+
+      - name: Build shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "out/${{ matrix.abi }}"
+
+          "${{ steps.ndk.outputs.cxx }}" \
+            AD_safe.cpp \
+            -std=c++17 \
+            -O2 \
+            -fPIC \
+            -fvisibility=hidden \
+            -ffunction-sections \
+            -fdata-sections \
+            -Wall \
+            -Wextra \
+            -Wpedantic \
+            -shared \
+            -Wl,--gc-sections \
+            -Wl,--build-id=sha1 \
+            -Wl,-z,relro \
+            -Wl,-z,now \
+            -llog \
+            -ldl \
+            -pthread \
+            -o "out/${{ matrix.abi }}/${LIB_NAME}"
+
+      - name: Verify ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="out/${{ matrix.abi }}/${LIB_NAME}"
+          test -s "$FILE"
+          file "$FILE"
+          llvm-readelf -h "$FILE"
+          llvm-readelf -d "$FILE" | grep -E 'NEEDED|SONAME' || true
+          sha256sum "$FILE" | tee "${FILE}.sha256"
+
+      - name: Upload ABI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParallaxSafe-${{ matrix.abi }}
+          path: |
+            out/${{ matrix.abi }}/${{ env.LIB_NAME }}
+            out/${{ matrix.abi }}/${{ env.LIB_NAME }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  bundle:
+    name: Bundle all ABIs
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download all ABI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ParallaxSafe-*
+          path: bundle
+
+      - name: Normalize jniLibs layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p jniLibs
+
+          for abi in arm64-v8a armeabi-v7a x86_64 x86; do
+            src="bundle/ParallaxSafe-${abi}"
+            test -d "$src"
+            mkdir -p "jniLibs/${abi}"
+            cp "$src/libParallaxSafe.so" "jniLibs/${abi}/libParallaxSafe.so"
+            cp "$src/libParallaxSafe.so.sha256" "jniLibs/${abi}/libParallaxSafe.so.sha256"
+          done
+
+          find jniLibs -type f -maxdepth 2 -print
+
+      - name: Upload complete jniLibs bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParallaxSafe-jniLibs
+          path: jniLibs/
+          if-no-files-found: error
+          retention-days: 30
