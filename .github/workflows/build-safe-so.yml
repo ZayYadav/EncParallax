@@ -53,7 +53,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "ndk;${NDK_VERSION}"
 
-      - name: Resolve compiler
+      - name: Resolve NDK tools
         id: ndk
         shell: bash
         run: |
@@ -61,10 +61,15 @@ jobs:
           NDK_ROOT="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}"
           TOOLCHAIN="${NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
           CXX="${TOOLCHAIN}/${{ matrix.triple }}${ANDROID_API}-clang++"
+          READELF="${TOOLCHAIN}/llvm-readelf"
 
           test -x "${CXX}"
+          test -x "${READELF}"
+
           echo "ndk_root=${NDK_ROOT}" >> "$GITHUB_OUTPUT"
+          echo "toolchain=${TOOLCHAIN}" >> "$GITHUB_OUTPUT"
           echo "cxx=${CXX}" >> "$GITHUB_OUTPUT"
+          echo "readelf=${READELF}" >> "$GITHUB_OUTPUT"
 
       - name: Build shared library
         shell: bash
@@ -88,6 +93,7 @@ jobs:
             -Wl,--build-id=sha1 \
             -Wl,-z,relro \
             -Wl,-z,now \
+            -Wl,-soname,${LIB_NAME} \
             -llog \
             -ldl \
             -pthread \
@@ -98,10 +104,14 @@ jobs:
         run: |
           set -euo pipefail
           FILE="out/${{ matrix.abi }}/${LIB_NAME}"
+          READELF="${{ steps.ndk.outputs.readelf }}"
+
           test -s "$FILE"
+          test -x "$READELF"
+
           file "$FILE"
-          llvm-readelf -h "$FILE"
-          llvm-readelf -d "$FILE" | grep -E 'NEEDED|SONAME' || true
+          "$READELF" -h "$FILE"
+          "$READELF" -d "$FILE" | grep -E 'NEEDED|SONAME' || true
           sha256sum "$FILE" | tee "${FILE}.sha256"
 
       - name: Upload ABI artifact
@@ -140,7 +150,7 @@ jobs:
             cp "$src/libParallaxSafe.so.sha256" "jniLibs/${abi}/libParallaxSafe.so.sha256"
           done
 
-          find jniLibs -type f -maxdepth 2 -print
+          find jniLibs -maxdepth 2 -type f -print
 
       - name: Upload complete jniLibs bundle
         uses: actions/upload-artifact@v4
